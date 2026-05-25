@@ -1,0 +1,46 @@
+// 1. Module importieren
+const express = require('express');
+const path = require('path');
+
+// 2. Express-App initialisieren
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// 3. Middleware für JSON und statische Dateien einrichten
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 4. Beispiel-Route für eine Suchfunktion (API-Endpunkt)
+app.get('/api/search', (req, res) => {
+    const query = req.query.q; // Holt den Suchbegriff aus der URL (z.B. /api/search?q=test)
+    
+    if (!query) {
+        return res.status(400).json({ error: 'Bitte gib einen Suchbegriff ein.' });
+    }
+
+    // Hier würde später Ihre echte Datenbank-Suche stattfinden.
+    // Dies ist ein einfaches Beispiel mit statischen Testdaten:
+    const mockDatabase = [
+        { title: 'Home', url: '/', description: 'Willkommen auf unserer Startseite.' },
+        { title: 'Über uns', url: '/about', description: 'Erfahre mehr über unser Team.' },
+        { title: 'Kontakt', url: '/contact', description: 'So erreichst du uns.' }
+    ];
+
+    // Filtert die Daten basierend auf dem Suchbegriff
+    const results = mockDatabase.filter(item => 
+        item.title.toLowerCase().includes(query.toLowerCase()) || 
+        item.description.toLowerCase().includes(query.toLowerCase())
+    );
+
+    res.json({ success: true, results });
+});
+
+// 5. Haupt-Route: Liefert die index.html aus
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 6. Server starten
+app.listen(PORT, () => {
+    console.log(`Server läuft auf: http://localhost:${PORT}`);
+});
