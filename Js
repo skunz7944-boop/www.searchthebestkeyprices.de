@@ -1,46 +1,62 @@
-// 1. Module importieren
-const express = require('express');
-const path = require('path');
+// Elemente aus dem HTML abgreifen
+const searchInput = document.getElementById('searchInput');
+const searchButton = document.getElementById('searchButton');
+const resultsContainer = document.getElementById('resultsContainer');
 
-// 2. Express-App initialisieren
-const app = express();
-const PORT = process.env.PORT || 3000;
+// Funktion zur Ausführung der Online-Suche (Asynchron, da wir auf den Server warten)
+async function performSearch() {
+    const query = searchInput.value.trim();
+    resultsContainer.innerHTML = ""; // Vorherige Ergebnisse löschen
 
-// 3. Middleware für JSON und statische Dateien einrichten
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// 4. Beispiel-Route für eine Suchfunktion (API-Endpunkt)
-app.get('/api/search', (req, res) => {
-    const query = req.query.q; // Holt den Suchbegriff aus der URL (z.B. /api/search?q=test)
-    
-    if (!query) {
-        return res.status(400).json({ error: 'Bitte gib einen Suchbegriff ein.' });
+    if (query === "") {
+        resultsContainer.innerHTML = "<p class='no-results'>Bitte gib einen Suchbegriff ein.</p>";
+        return;
     }
 
-    // Hier würde später Ihre echte Datenbank-Suche stattfinden.
-    // Dies ist ein einfaches Beispiel mit statischen Testdaten:
-    const mockDatabase = [
-        { title: 'Home', url: '/', description: 'Willkommen auf unserer Startseite.' },
-        { title: 'Über uns', url: '/about', description: 'Erfahre mehr über unser Team.' },
-        { title: 'Kontakt', url: '/contact', description: 'So erreichst du uns.' }
-    ];
+    try {
+        // Lade-Anzeige für den Nutzer (optional, aber cool für die Usability)
+        resultsContainer.innerHTML = "<p class='loading'>Suche läuft...</p>";
 
-    // Filtert die Daten basierend auf dem Suchbegriff
-    const results = mockDatabase.filter(item => 
-        item.title.toLowerCase().includes(query.toLowerCase()) || 
-        item.description.toLowerCase().includes(query.toLowerCase())
-    );
+        // Anfrage an deinen Express-Server senden
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        
+        if (!response.ok) {
+            throw new Error('Fehler bei der Server-Anfrage');
+        }
 
-    res.json({ success: true, results });
-});
+        const data = await response.json();
+        resultsContainer.innerHTML = ""; // Lade-Anzeige entfernen
 
-// 5. Haupt-Route: Liefert die index.html aus
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+        // Ergebnisse auswerten und anzeigen (Erwartet die Struktur deines Servers: { results: [...] })
+        if (!data.results || data.results.length === 0) {
+            resultsContainer.innerHTML = "<p class='no-results'>Keine Angebote zu diesem Spiel gefunden.</p>";
+            return;
+        }
 
-// 6. Server starten
-app.listen(PORT, () => {
-    console.log(`Server läuft auf: http://localhost:${PORT}`);
+        data.results.forEach(game => {
+            const gameCard = document.createElement('div');
+            gameCard.className = 'game-card';
+            gameCard.innerHTML = `
+                <div>
+                    <h3>${game.title}</h3>
+                    <small>Shop: ${game.store || 'Unbekannt'}</small>
+                </div>
+                <div class="price">${game.price || 'N/A'}</div>
+            `;
+            resultsContainer.appendChild(gameCard);
+        });
+
+    } catch (error) {
+        console.error("Suchfehler:", error);
+        resultsContainer.innerHTML = "<p class='error-results'>Verbindung zum Server fehlgeschlagen.</p>";
+    }
+}
+
+// Event-Listener für den Button-Klick und die Enter-Taste
+searchButton.addEventListener('click', performSearch);
+searchInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        performSearch();
+
+}
 });
