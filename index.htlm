@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DEAL_RADAR v3.0 — Games · Streaming · Software</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+    @keyframes glitch{
+      0%{transform:translate(0)}
+      20%{transform:translate(-2px,2px);clip-path:polygon(0 30%,100% 30%,100% 50%,0 50%)}
+      40%{transform:translate(2px,-2px);clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%)}
+      60%{transform:translate(-1px,1px);clip-path:polygon(0 10%,100% 10%,100% 30%,0 30%)}
+      80%{transform:translate(1px,-1px)}
+      100%{transform:translate(0)}
+    }
+    @keyframes sweep{0%{top:-4px}100%{top:100vh}}
+    @keyframes flicker{0%,97%,100%{opacity:1}98%{opacity:.4}99%{opacity:.8}}
+    @keyframes neon-border{
+      0%,100%{border-color:#ff2d6b;box-shadow:0 0 18px #ff2d6b88}
+      33%{border-color:#00f0ff;box-shadow:0 0 18px #00f0ff88}
+      66%{border-color:#b8ff00;box-shadow:0 0 18px #b8ff0088}
+    }
+    @keyframes up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes grid-move{0%{background-position:0 0}100%{background-position:40px 40px}}
+    @keyframes card-in{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes ai-in{from{opacity:0;transform:scaleY(.95)}to{opacity:1;transform:scaleY(1)}}
+    @keyframes tab-glow{0%,100%{opacity:.7}50%{opacity:1}}
+
+    body{background:#050510;color:#e0e0ff;font-family:'Courier New',Courier,monospace;min-height:100vh;overflow-x:hidden}
+
+    /* Backgrounds */
+    #bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:linear-gradient(rgba(0,240,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.04) 1px,transparent 1px);
+      background-size:40px 40px;animation:grid-move 4s linear infinite}
+    #scanlines{position:fixed;inset:0;z-index:1;pointer-events:none;
+      background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px)}
+    #sweep{position:fixed;left:0;right:0;height:3px;z-index:2;pointer-events:none;
+      background:linear-gradient(transparent,rgba(0,240,255,.3),transparent);animation:sweep 6s linear infinite}
+
+    /* Corners */
+    .corner{position:fixed;width:40px;height:40px;z-index:10;pointer-events:none}
+    .c-tl{top:16px;left:16px;border-top:2px solid #ff2d6b;border-left:2px solid #ff2d6b}
+    .c-tr{top:16px;right:16px;border-top:2px solid #00f0ff;border-right:2px solid #00f0ff}
+    .c-bl{bottom:16px;left:16px;border-bottom:2px solid #b8ff00;border-left:2px solid #b8ff00}
+    .c-br{bottom:16px;right:16px;border-bottom:2px solid #bf5fff;border-right:2px solid #bf5fff}
+
+    /* HUD */
+    #hud{position:fixed;top:0;left:0;right:0;height:48px;z-index:10;
+      background:rgba(5,5,16,.96);border-bottom:1px solid rgba(0,240,255,.15);
+      display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+    .hud-l{display:flex;gap:16px;font-size:9px;color:rgba(0,240,255,.5);letter-spacing:3px}
+    .hud-l .on{color:#b8ff00}
+    #clock{font-size:11px;color:#ff2d6b;letter-spacing:4px;animation:flicker 5s infinite}
+    .hud-r{font-size:9px;color:rgba(224,224,255,.2);letter-spacing:2px}
+
+    /* App */
+    #app{position:relative;z-index:5;max-width:1000px;margin:0 auto;padding:72px 20px 60px}
+
+    /* Hero */
+    #hero{text-align:center;margin-bottom:36px}
+    .hero-sub{font-size:10px;letter-spacing:8px;color:rgba(0,240,255,.5);margin-bottom:10px;animation:up .8s ease both}
+    #logo{font-size:clamp(34px,7vw,68px);font-weight:900;letter-spacing:-2px;line-height:1;
+      background:linear-gradient(135deg,#ff2d6b,#00f0ff,#b8ff00);
+      -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 28px rgba(255,45,107,.4));animation:up 1s ease both .1s;display:block}
+    #logo.glitching{animation:glitch .3s steps(2) both}
+    #logo-sub{font-size:clamp(9px,2vw,12px);letter-spacing:10px;
+      background:linear-gradient(90deg,rgba(255,45,107,.6),rgba(0,240,255,.6));
+      -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+      display:block;margin-top:6px;font-weight:400;animation:up 1s ease both .2s}
+    .hero-p{font-size:10px;color:rgba(224,224,255,.25);letter-spacing:4px;margin-top:14px;animation:up 1s ease both .3s}
+
+    /* Category tabs */
+    #cats{display:flex;justify-content:center;gap:8px;margin-bottom:28px;flex-wrap:wrap;animation:up 1s ease both .4s}
+    .cat-btn{padding:9px 22px;border-radius:3px;border:1px solid;
+      font-size:11px;font-weight:700;letter-spacing:3px;cursor:pointer;
+      font-family:'Courier New',monospace;transition:all .25s;background:transparent}
+    .cat-btn.active{color:#050510!important;font-weight:900}
+
+    /* Search */
+    #search-wrap{position:relative;margin-bottom:24px;animation:up 1s ease both .5s}
+    #search-box{border:1px solid rgba(255,45,107,.4);border-radius:4px;overflow:hidden;
+      animation:neon-border 6s linear infinite;
+      box-shadow:0 0 28px rgba(255,45,107,.12),inset 0 0 28px rgba(5,5,16,.9);
+      display:flex;align-items:center}
+    #pfx{flex-shrink:0;padding:0 16px;color:#00f0ff;font-size:17px;font-weight:700;letter-spacing:2px;user-select:none}
+    #sinput{flex:1;padding:20px 10px;background:rgba(5,5,16,.95);border:none;outline:none;
+      color:#e0e0ff;font-size:16px;font-family:'Courier New',monospace;letter-spacing:2px;caret-color:#ff2d6b}
+    #sinput::placeholder{color:rgba(224,224,255,.3)}
+    #sbtn{flex-shrink:0;margin:8px;padding:11px 26px;
+      background:linear-gradient(135deg,#ff2d6b,#c0004d);border:none;border-radius:3px;
+      color:#fff;font-size:11px;font-weight:700;letter-spacing:3px;cursor:pointer;
+      font-family:'Courier New',monospace;box-shadow:0 0 18px rgba(255,45,107,.4);
+      transition:box-shadow .2s,transform .15s}
+    #sbtn:hover{box-shadow:0 0 34px rgba(255,45,107,.7);transform:scale(1.03)}
+    #sbtn:active{transform:scale(.97)}
+
+    /* Popular */
+    #popular{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:40px;animation:up 1s ease both .6s}
+    .pop-label{font-size:9px;color:rgba(224,224,255,.2);letter-spacing:3px;align-self:center}
+    .pop-tag{padding:5px 13px;background:transparent;border-radius:2px;
+      font-size:9px;letter-spacing:2px;cursor:pointer;font-family:'Courier New',monospace;
+      transition:background .2s,color .2s}
+
+    /* Section divider */
+    .section-head{font-size:9px;color:rgba(224,224,255,.2);letter-spacing:6px;
+      text-align:center;margin-bottom:18px;display:flex;align-items:center;gap:12px;justify-content:center}
+    .section-head::before,.section-head::after{content:'';flex:1;height:1px;background:rgba(224,224,255,.07)}
+
+    /* Shop grid */
+    .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:28px}
+    .shop-card{display:block;text-decoration:none;padding:20px;border-radius:4px;
+      position:relative;overflow:hidden;cursor:pointer;
+      transition:background .25s,border-color .25s,box-shadow .25s,transform .25s}
+    .card-accent{position:absolute;top:0;left:0;right:0;height:2px}
+    .card-tag{position:absolute;top:9px;right:11px;font-size:7px;letter-spacing:2px}
+    .card-head{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+    .shop-icon{width:40px;height:40px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+    .shop-name{font-size:14px;font-weight:700;letter-spacing:2px}
+    .shop-sub{font-size:9px;color:rgba(224,224,255,.27);letter-spacing:2px;margin-top:2px}
+    .shop-badge{display:inline-block;font-size:7px;letter-spacing:2px;padding:2px 8px;border-radius:2px;margin-top:6px}
+    .url-preview{padding:9px 12px;background:rgba(0,0,0,.4);border-radius:3px;
+      font-size:10px;color:rgba(224,224,255,.35);letter-spacing:1px;word-break:break-all;line-height:1.5}
+    .card-open{margin-top:14px;text-align:right;font-size:11px;font-weight:700;letter-spacing:3px}
+
+    /* Open all */
+    .open-all-wrap{text-align:center;margin-bottom:36px}
+    .open-all-btn{padding:13px 40px;background:transparent;border:1px solid rgba(224,224,255,.18);
+      border-radius:3px;color:rgba(224,224,255,.5);font-size:10px;letter-spacing:4px;
+      cursor:pointer;font-family:'Courier New',monospace;transition:all .25s}
+    .open-all-btn:hover{background:rgba(255,255,255,.05);color:#e0e0ff;border-color:rgba(224,224,255,.38)}
+
+    /* AI card */
+    #ai-loading{padding:20px;border:1px solid rgba(0,240,255,.18);border-radius:4px;
+      background:rgba(0,240,255,.03);text-align:center;color:rgba(0,240,255,.5);
+      font-size:11px;letter-spacing:4px;animation:flicker 1s infinite;display:none;margin-bottom:24px}
+    #ai-card{padding:22px;border:1px solid rgba(0,240,255,.25);border-radius:4px;
+      background:rgba(0,240,255,.04);position:relative;overflow:hidden;
+      animation:ai-in .5s ease both;display:none;margin-bottom:24px}
+    #ai-card .top-acc{position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,#00f0ff,transparent)}
+    .ai-inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+    .ai-main{flex:1;min-width:200px}
+    .ai-badge{font-size:8px;color:rgba(0,240,255,.5);letter-spacing:4px;margin-bottom:7px}
+    .ai-title{font-size:20px;font-weight:900;color:#e0e0ff;text-shadow:0 0 18px rgba(0,240,255,.25);margin-bottom:9px}
+    .ai-desc{font-size:11px;color:rgba(224,224,255,.55);line-height:1.7;margin-bottom:11px}
+    .ai-tip{font-size:10px;color:#b8ff00;border:1px solid rgba(184,255,0,.2);display:inline-block;padding:4px 12px;border-radius:2px}
+    .ai-stats{display:flex;flex-direction:column;gap:9px;min-width:130px}
+    .ai-stat{padding:8px 12px;border-radius:3px}
+    .stat-lbl{font-size:7px;letter-spacing:3px}
+    .stat-val{font-size:12px;font-weight:700;margin-top:2px}
+
+    /* Footer */
+    #footer{margin-top:50px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+      font-size:8px;color:rgba(224,224,255,.1);letter-spacing:3px;
+      border-top:1px solid rgba(224,224,255,.05);padding-top:14px}
+  </style>
+</head>
+<body>
+
+<div id="bg-grid"></div>
+<div id="scanlines"></div>
+<div id="sweep"></div>
+<div class="corner c-tl"></div>
+<div class="corner c-tr"></div>
+<div class="corner c-bl"></div>
+<div class="corner c-br"></div>
+
+<div id="hud">
+  <div class="hud-l"><span>SYS.ONLINE</span><span class="on">▶ DEAL_RADAR.EXE</span></div>
+  <div id="clock">00:00:00</div>
+  <div class="hud-r">GAMES · STREAMING · SOFTWARE</div>
+</div>
+
+<div id="app">
+
+  <div id="hero">
+    <div class="hero-sub">◈ NEURAL PRICE SCANNER INITIALIZED ◈</div>
+    <span id="logo">DEAL_RADAR</span>
+    <span id="logo-sub">◀ v3.0 · GAMES · STREAMING · SOFTWARE ▶</span>
+    <p class="hero-p">SCANNE ALLE ANBIETER — FINDE DEN BESTEN PREIS</p>
+  </div>
+
+  <!-- Category Tabs -->
+  <div id="cats"></div>
+
+  <!-- Search -->
+  <div id="search-wrap">
+    <div id="search-box">
+      <span id="pfx">&gt;_</span>
+      <input id="sinput" type="text" autocomplete="off" spellcheck="false"/>
+      <button id="sbtn">SCAN ▶</button>
+    </div>
+  </div>
+
+  <!-- Popular -->
+  <div id="popular"><span class="pop-label">TRENDING:</span></div>
+
+  <!-- AI -->
+  <div id="ai-loading">◈ KI ANALYSIERT PREISDATEN... ◈</div>
+  <div id="ai-card">
+    <div class="top-acc"></div>
+    <div class="ai-inner">
+      <div class="ai-main">
+        <div class="ai-badge">◈ KI-ANALYSE</div>
+        <div class="ai-title" id="ai-title"></div>
+        <div class="ai-desc"  id="ai-desc"></div>
+        <div class="ai-tip"   id="ai-tip"></div>
+      </div>
+      <div class="ai-stats" id="ai-stats"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+  <div id="footer">
+    <span>DEAL_RADAR v3.0</span>
+    <span>12 ANBIETER · 3 KATEGORIEN</span>
+    <span>MADE WITH ◈ NEON</span>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   SHOP DATA
+══════════════════════════════════════════════════════ */
+const CATEGORIES = [
+  { id:"all",       label:"◈ ALLE",      color:"#e0e0ff" },
+  { id:"games",     label:"🎮 GAMES",    color:"#ff2d6b" },
+  { id:"streaming", label:"🎬 STREAMING",color:"#00f0ff" },
+  { id:"software",  label:"💻 SOFTWARE", color:"#b8ff00" },
+];
+
+const SHOPS = [
+  /* ── GAMES ── */
+  {
+    cat:"games", id:"instant", name:"Instant Gaming",
+    url:"https://www.instant-gaming.com/de/recherche/?q=",
+    color:"#ff2d6b", icon:"⚡", tag:"GÜNSTIGSTE PREISE",
+    badge:"PC · CONSOLE · DLC", info:"Oft -90% unter UVP"
+  },
+  {
+    cat:"games", id:"eneba", name:"Eneba",
+    url:"https://www.eneba.com/de/?search=",
+    color:"#ff6b6b", icon:"🎮", tag:"GLOBALER MARKT",
+    badge:"PC · XBOX · PSN", info:"Regionpreise verfügbar"
+  },
+  {
+    cat:"games", id:"mmoga", name:"MMOGA",
+    url:"https://www.mmoga.de/Games/?search=",
+    color:"#ffa500", icon:"🔑", tag:"SOFORT KEYS",
+    badge:"DE-SHOP · SOFORT", info:"Großer DE-Anbieter"
+  },
+  {
+    cat:"games", id:"kinguin", name:"Kinguin",
+    url:"https://www.kinguin.net/listing?search=",
+    color:"#bf5fff", icon:"👑", tag:"MARKETPLACE",
+    badge:"PC · STEAM · ORIGIN", info:"Käuferschutz inklusive"
+  },
+  {
+    cat:"games", id:"g2a", name:"G2A",
+    url:"https://www.g2a.com/search?query=",
+    color:"#ff9a00", icon:"🛒", tag:"KEY MARKT",
+    badge:"PC · CONSOLE · GIFT", info:"Größter Key-Marktplatz"
+  },
+  {
+    cat:"games", id:"cdkeys", name:"CDKeys",
+    url:"https://www.cdkeys.com/?mw_aref=search&q=",
+    color:"#00cc66", icon:"🗝️", tag:"GAMES + STREAMING",
+    badge:"GAMES · ABO-CODES", info:"Auch Disney+, Netflix!"
+  },
+  {
+    cat:"games", id:"allkeyshop", name:"AllKeyShop",
+    url:"https://www.allkeyshop.com/blog/catalogue/search/?search=",
+    color:"#00d4ff", icon:"📊", tag:"PREISVERGLEICH",
+    badge:"VERGLEICHT 50+ SHOPS", info:"Meta-Vergleichsseite"
+  },
+
+  /* ── STREAMING ── */
+  {
+    cat:"streaming", id:"cdkeys-stream", name:"CDKeys Streaming",
+    url:"https://www.cdkeys.com/?mw_aref=search&q=",
+    color:"#00f0ff", icon:"📺", tag:"ABO-CODES",
+    badge:"DISNEY+ · NETFLIX · MEHR", info:"Günstigste Abo-Codes"
+  },
+  {
+    cat:"streaming", id:"eneba-stream", name:"Eneba Streaming",
+    url:"https://www.eneba.com/de/?search=",
+    color:"#00aaff", icon:"🎬", tag:"STREAMING KEYS",
+    badge:"DISNEY+ · DAZN · SKY", info:"Digitale Abo-Gutscheine"
+  },
+  {
+    cat:"streaming", id:"kinguin-stream", name:"Kinguin Streaming",
+    url:"https://www.kinguin.net/listing?search=",
+    color:"#aa55ff", icon:"🎭", tag:"ABO GÜNSTIG",
+    badge:"DISNEY+ · SPOTIFY", info:"Oft 30-50% günstiger"
+  },
+  {
+    cat:"streaming", id:"g2a-stream", name:"G2A Streaming",
+    url:"https://www.g2a.com/search?query=",
+    color:"#ff6600", icon:"▶️", tag:"STREAMING DEALS",
+    badge:"NETFLIX · DISNEY · HBO", info:"Globale Abo-Keys"
+  },
+
+  /* ── SOFTWARE ── */
+  {
+    cat:"software", id:"cdkeys-soft", name:"CDKeys Software",
+    url:"https://www.cdkeys.com/?mw_aref=search&q=",
+    color:"#b8ff00", icon:"💾", tag:"SOFTWARE KEYS",
+    badge:"WINDOWS · OFFICE · VPN", info:"MS Office ab ~20€"
+  },
+  {
+    cat:"software", id:"mmoga-soft", name:"MMOGA Software",
+    url:"https://www.mmoga.de/Software/?search=",
+    color:"#aaff00", icon:"🖥️", tag:"DE-ANBIETER",
+    badge:"WINDOWS · ANTIVIRUS", info:"Sofortlieferung"
+  },
+  {
+    cat:"software", id:"kinguin-soft", name:"Kinguin Software",
+    url:"https://www.kinguin.net/listing?search=",
+    color:"#cc88ff", icon:"📦", tag:"SOFTWARE DEALS",
+    badge:"OFFICE · ADOBE · VPN", info:"Große Auswahl"
+  },
+  {
+    cat:"software", id:"g2a-soft", name:"G2A Software",
+    url:"https://www.g2a.com/search?query=",
+    color:"#ffaa22", icon:"🔐", tag:"LIZENZKEYS",
+    badge:"WINDOWS · TOOLS · VPN", info:"Marketplace-Preise"
+  },
+];
+
+const POPULAR_BY_CAT = {
+  all:      ["Disney Plus","Cyberpunk 2077","Netflix","Windows 11","Elden Ring","Office 365","Spotify","GTA 6"],
+  games:    ["Cyberpunk 2077","Elden Ring","GTA 6","The Witcher 3","Hogwarts Legacy","EA FC 25","Call of Duty","Red Dead 2"],
+  streaming:["Disney Plus","Netflix","Spotify Premium","DAZN","Apple TV","Amazon Prime","HBO Max","Sky Ticket"],
+  software: ["Windows 11","Office 365","Adobe Creative","Malwarebytes","NordVPN","ExpressVPN","Photoshop","Antivirus"],
+};
+
+const API_KEY = ""; // Anthropic Key hier eintragen (optional)
+
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+let activeCat = "all";
+let currentQuery = "";
+
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+// Clock
+setInterval(() => {
+  document.getElementById("clock").textContent =
+    new Date().toLocaleTimeString("de-DE",{hour12:false});
+},1000);
+
+// Glitch
+setInterval(()=>{
+  const l=document.getElementById("logo");
+  l.classList.add("glitching");
+  setTimeout(()=>l.classList.remove("glitching"),350);
+},9000);
+
+// Typewriter
+(()=>{
+  const inp=document.getElementById("sinput");
+  let words=POPULAR_BY_CAT.all, wi=0,ci=0,del=false;
+  setInterval(()=>{
+    const w=words[wi];
+    if(!del){inp.placeholder=w.slice(0,++ci);if(ci===w.length)del=true}
+    else{inp.placeholder=w.slice(0,--ci);if(ci===0){del=false;wi=(wi+1)%words.length}}
+  },85);
+  window._updateTypewriter=cat=>{words=POPULAR_BY_CAT[cat]||POPULAR_BY_CAT.all;wi=0;ci=0;del=false};
+})();
+
+// Build category tabs
+const catEl=document.getElementById("cats");
+CATEGORIES.forEach(c=>{
+  const btn=document.createElement("button");
+  btn.className="cat-btn"+(c.id==="all"?" active":"");
+  btn.textContent=c.label;
+  btn.style.borderColor=c.color+"66";
+  btn.style.color=c.color;
+  if(c.id==="all"){
+    btn.style.background=c.color;
+    btn.style.color="#050510";
+    btn.style.borderColor=c.color;
+  }
+  btn.addEventListener("click",()=>{
+    activeCat=c.id;
+    document.querySelectorAll(".cat-btn").forEach(b=>{
+      const cat=CATEGORIES.find(x=>b.textContent===x.label);
+      if(!cat)return;
+      b.classList.remove("active");
+      b.style.background="transparent";
+      b.style.color=cat.color;
+      b.style.borderColor=cat.color+"66";
+    });
+    btn.classList.add("active");
+    btn.style.background=c.color;
+    btn.style.color="#050510";
+    btn.style.borderColor=c.color;
+    window._updateTypewriter&&window._updateTypewriter(c.id);
+    buildPopular(c.id);
+    if(currentQuery) renderResults(currentQuery);
+  });
+  catEl.appendChild(btn);
+});
+
+// Popular tags
+function buildPopular(cat){
+  const popEl=document.getElementById("popular");
+  popEl.innerHTML='<span class="pop-label">TRENDING:</span>';
+  const colors=["#ff2d6b","#00f0ff","#b8ff00","#bf5fff","#ff9a00","#00cc66"];
+  (POPULAR_BY_CAT[cat]||POPULAR_BY_CAT.all).forEach((g,i)=>{
+    const c=colors[i%colors.length];
+    const btn=document.createElement("button");
+    btn.className="pop-tag";
+    btn.textContent=g;
+    btn.style.border=`1px solid ${c}44`;
+    btn.style.color=`${c}88`;
+    btn.addEventListener("mouseenter",()=>{btn.style.background=`${c}18`;btn.style.color=c});
+    btn.addEventListener("mouseleave",()=>{btn.style.background="transparent";btn.style.color=`${c}88`});
+    btn.addEventListener("click",()=>{
+      document.getElementById("sinput").value=g;
+      doSearch(g);
+    });
+    popEl.appendChild(btn);
+  });
+}
+buildPopular("all");
+
+// Search events
+document.getElementById("sbtn").addEventListener("click",()=>{
+  const q=document.getElementById("sinput").value.trim();
+  if(q)doSearch(q);
+});
+document.getElementById("sinput").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){const q=document.getElementById("sinput").value.trim();if(q)doSearch(q)}
+});
+
+/* ══════════════════════════════════════════════════════
+   SEARCH
+══════════════════════════════════════════════════════ */
+async function doSearch(
